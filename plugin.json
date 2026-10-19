@@ -1,0 +1,36 @@
+{
+  "name": "batch-markdown-export",
+  "author": "Fly1018",
+  "url": "https://github.com/Fly1018/batch-markdown-export",
+  "version": "0.1.1",
+  "minAppVersion": "3.8.0",
+  "backends": [
+    "windows",
+    "linux",
+    "darwin"
+  ],
+  "frontends": [
+    "desktop",
+    "desktop-window",
+    "browser-desktop"
+  ],
+  "displayName": {
+    "default": "Batch Markdown Export",
+    "zh_CN": "批量导出 Markdown",
+    "en_US": "Batch Markdown Export"
+  },
+  "description": {
+    "default": "Batch Markdown Export for SiYuan.",
+    "zh_CN": "批量导出 Markdown：思源笔记插件。",
+    "en_US": "Batch Markdown Export for SiYuan."
+  },
+  "readme": {
+    "default": "README.md",
+    "zh_CN": "README.zh-CN.md",
+    "en_US": "README.md"
+  },
+  "keywords": [
+    "batch-markdown-export",
+    "siyuan"
+  ]
+}
