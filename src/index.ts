@@ -1,12 +1,14 @@
 import { Plugin, showMessage, fetchSyncPost, saveExportFile } from "siyuan";
 import { svelteDialog } from "@/libs/dialog";
 import { SettingUtils } from "@/libs/setting-utils";
-import NotebookDialog from "@/components/NotebookDialog.svelte";
+import MigrationDialog from "@/components/MigrationDialog.svelte";
 import "./index.scss";
 
 const NOTEBOOK_API = "/api/notebook/lsNotebooks";
 const SQL_API = "/api/query/sql";
 const EXPORT_API = "/api/export/exportNotebooksMd";
+const IMPORT_API = "/api/import/importZipMd";
+const RELOAD_FILETREE_API = "/api/ui/reloadFiletree";
 
 interface NotebookRow {
     id: string;
@@ -28,6 +30,7 @@ export default class BatchMarkdownExport extends Plugin {
     private disposed = false;
     private exporting = false;
     private saving = false;
+    private importing = false;
     private dialog: ReturnType<typeof svelteDialog> | undefined;
 
     async onload() {
@@ -62,12 +65,17 @@ export default class BatchMarkdownExport extends Plugin {
             icon: "iconDownload",
             title: this.t("topBarTitle"),
             position: "right",
-            callback: () => this.openExportDialog(),
+            callback: () => this.openMigrationDialog("export"),
             contextMenu: (menu: any) => {
                 menu.addItem({
                     icon: "iconDownload",
                     label: this.t("exportMenu"),
-                    click: () => this.openExportDialog(),
+                    click: () => this.openMigrationDialog("export"),
+                });
+                menu.addItem({
+                    icon: "iconUpload",
+                    label: this.t("importMenu"),
+                    click: () => this.openMigrationDialog("import"),
                 });
                 menu.addItem({
                     icon: "iconSettings",
@@ -196,21 +204,53 @@ export default class BatchMarkdownExport extends Plugin {
         }
     }
 
-    private openExportDialog() {
+    private async importZip(file: File, notebook: string, toPath: string, skipRoot: boolean) {
+        const form = new FormData();
+        form.append("file", file, file.name);
+        form.append("notebook", notebook);
+        form.append("toPath", toPath || "/");
+        if (skipRoot) form.append("skipRoot", "true");
+
+        let response: Response;
+        try {
+            response = await fetch(IMPORT_API, { method: "POST", body: form });
+        } catch (error) {
+            throw new Error(this.t("importFailed"));
+        }
+
+        let data: any = null;
+        try {
+            data = await response.json();
+        } catch (error) {
+            data = null;
+        }
+        if (!data || typeof data.code !== "number" || data.code !== 0) {
+            throw new Error((data && data.msg) || this.t("importFailed"));
+        }
+
+        try {
+            await fetchSyncPost(RELOAD_FILETREE_API, {});
+        } catch (error) {
+            console.warn("[batch-markdown-export] reload file tree failed", error);
+        }
+    }
+
+    private openMigrationDialog(tab: "export" | "import" = "export") {
         if (this.disposed) return;
-        if (this.exporting || this.saving) {
-            showMessage(this.t("exporting"), 3000);
+        if (this.exporting || this.saving || this.importing) {
+            showMessage(this.t(tab === "import" ? "importing" : "exporting"), 3000);
             return;
         }
         if (this.dialog) return;
 
         let handle: ReturnType<typeof svelteDialog>;
         handle = svelteDialog({
-            title: this.t("chooseNotebooks"),
-            component: NotebookDialog,
-            width: "520px",
-            height: "560px",
+            title: this.t("migrationTitle"),
+            component: MigrationDialog,
+            width: "560px",
+            height: "640px",
             props: {
+                initialTab: tab,
                 labels: {
                     hint: this.t("dialogHint"),
                     loading: this.t("loading"),
@@ -233,6 +273,26 @@ export default class BatchMarkdownExport extends Plugin {
                     downloadFailed: this.t("downloadFailed"),
                     downloadAgain: this.t("downloadAgain"),
                     emptyNotebooks: this.t("emptyNotebooks"),
+                    tabExport: this.t("tabExport"),
+                    tabImport: this.t("tabImport"),
+                    importHint: this.t("importHint"),
+                    importNotebook: this.t("importNotebook"),
+                    importPath: this.t("importPath"),
+                    importPathPlaceholder: this.t("importPathPlaceholder"),
+                    importPathHint: this.t("importPathHint"),
+                    importFile: this.t("importFile"),
+                    importChooseFile: this.t("importChooseFile"),
+                    importFileInfo: this.t("importFileInfo"),
+                    importNoFile: this.t("importNoFile"),
+                    importOnlyZip: this.t("importOnlyZip"),
+                    importSkipRoot: this.t("importSkipRoot"),
+                    importSkipRootDesc: this.t("importSkipRootDesc"),
+                    importStart: this.t("importStart"),
+                    importing: this.t("importing"),
+                    importDone: this.t("importDone"),
+                    importFailed: this.t("importFailed"),
+                    importNeedNotebook: this.t("importNeedNotebook"),
+                    importNoNotebooks: this.t("importNoNotebooks"),
                 },
                 load: () => this.loadNotebooks(),
                 exportNotebooks: async (ids: string[]) => {
@@ -253,6 +313,14 @@ export default class BatchMarkdownExport extends Plugin {
                         return result;
                     } finally {
                         this.saving = false;
+                    }
+                },
+                importZip: async (file: File, notebook: string, toPath: string, skipRoot: boolean) => {
+                    this.importing = true;
+                    try {
+                        await this.importZip(file, notebook, toPath, skipRoot);
+                    } finally {
+                        this.importing = false;
                     }
                 },
                 onClose: () => handle.close(),

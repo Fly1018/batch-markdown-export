@@ -2,7 +2,7 @@
   "name": "batch-markdown-export",
   "author": "Fly1018",
   "url": "https://github.com/Fly1018/batch-markdown-export",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "minAppVersion": "3.8.0",
   "backends": [
     "windows",
@@ -15,14 +15,18 @@
     "browser-desktop"
   ],
   "displayName": {
-    "default": "Batch Markdown Export",
-    "zh_CN": "批量导出 Markdown",
-    "en_US": "Batch Markdown Export"
+    "default": "Batch Markdown Export & Import",
+    "zh_CN": "批量导出 / 导入 Markdown",
+    "zh-CN": "批量导出 / 导入 Markdown",
+    "en_US": "Batch Markdown Export & Import",
+    "en": "Batch Markdown Export & Import"
   },
   "description": {
-    "default": "Batch Markdown Export for SiYuan.",
-    "zh_CN": "批量导出 Markdown：思源笔记插件。",
-    "en_US": "Batch Markdown Export for SiYuan."
+    "default": "Export notebooks as a Markdown ZIP, or import a Markdown ZIP into a notebook.",
+    "zh_CN": "把笔记本批量导出为 Markdown ZIP，或把 Markdown ZIP 批量导入到笔记本。",
+    "zh-CN": "把笔记本批量导出为 Markdown ZIP，或把 Markdown ZIP 批量导入到笔记本。",
+    "en_US": "Export notebooks as a Markdown ZIP, or import a Markdown ZIP into a notebook.",
+    "en": "Export notebooks as a Markdown ZIP, or import a Markdown ZIP into a notebook."
   },
   "readme": {
     "default": "README.md",
@@ -30,7 +34,12 @@
     "en_US": "README.md"
   },
   "keywords": [
-    "batch-markdown-export",
-    "siyuan"
+    "markdown",
+    "export",
+    "import",
+    "notebook",
+    "导出",
+    "导入",
+    "备份"
   ]
 }
