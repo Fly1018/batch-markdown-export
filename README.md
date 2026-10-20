@@ -1,6 +1,6 @@
 # Batch Markdown Export & Import
 
-Export notebooks as a Markdown ZIP, or import a Markdown ZIP into a notebook, from one top-bar panel.
+Export notebooks as a Markdown ZIP, import a Markdown ZIP, or run a preconfigured export/import with one hotkey.
 
 ## Features
 
@@ -18,20 +18,38 @@ Export notebooks as a Markdown ZIP, or import a Markdown ZIP into a notebook, fr
 - Optionally skip the ZIP root folder.
 - Uploads through `/api/import/importZipMd` and refreshes the file tree afterwards.
 
+### One-click export / import
+
+Open the **Quick** tab once to configure:
+
+- Default export notebook.
+- Save mode: **Ask where to save** or **Download directly**.
+- Default import folder (a local Markdown folder outside the workspace).
+- Target notebook, target path, and whether to skip the folder root.
+
+After that:
+
+- `⇧⌘E` — export the configured notebook immediately.
+- `⇧⌘I` — import the configured folder immediately.
+
+The commands are also available in the command palette. Hotkeys can be changed in **Settings → Keymap**. If the quick settings are incomplete, the command opens the Quick tab and asks you to fill them in.
+
 ## Usage
 
 1. Click the download icon in the top bar.
-2. Switch between the **Export** and **Import** tabs.
+2. Use the **Export**, **Import**, or **Quick** tab.
 3. Export: select notebooks and click **Export**.
 4. Import: choose a notebook, a target path, and a `.zip` file, then click **Start import**.
+5. Quick: fill in the defaults once, then use the hotkeys.
 
-Right-click the top-bar icon to open the export or import tab directly.
+Right-click the top-bar icon to open the export/import tabs or run the one-click commands directly.
 
 ## Notes
 
-- Import only lists non-encrypted notebooks.
+- Import only lists non-encrypted notebooks; the one-click import requires an opened notebook.
+- The import folder must be a local folder outside the SiYuan workspace.
+- **Download directly** saves to the browser's default download folder without a save dialog.
 - The import ZIP can contain `.md` files and folders; folders are imported as documents.
-- If the ZIP contains a single top-level folder, enable **Skip the ZIP root folder** to avoid creating an extra document level.
 
 ## Development
 

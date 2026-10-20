@@ -2,14 +2,17 @@
     import { untrack } from "svelte";
     import NotebookDialog from "./NotebookDialog.svelte";
     import ImportPanel from "./ImportPanel.svelte";
+    import QuickConfig from "./QuickConfig.svelte";
 
     interface Props {
         labels: Record<string, string>;
-        initialTab?: "export" | "import";
+        initialTab?: "export" | "import" | "quick";
         load: () => Promise<{ notebooks: any[]; counts: Record<string, number> }>;
         exportNotebooks: (ids: string[]) => Promise<{ zip: string; name: string }>;
         save: (zip: string, name: string) => Promise<"saved" | "canceled" | "error">;
         importZip: (file: File, notebook: string, toPath: string, skipRoot: boolean) => Promise<void>;
+        quickSettings: any;
+        onQuickSave: (settings: any) => void;
         onClose: () => void;
     }
 
@@ -20,10 +23,12 @@
         exportNotebooks,
         save,
         importZip,
+        quickSettings,
+        onQuickSave,
         onClose,
     }: Props = $props();
 
-    let tab = $state<"export" | "import">(untrack(() => initialTab));
+    let tab = $state<"export" | "import" | "quick">(untrack(() => initialTab));
 </script>
 
 <div class="migration">
@@ -44,13 +49,29 @@
         >
             {labels.tabImport}
         </button>
+        <button
+            type="button"
+            class="migration__tab"
+            class:migration__tab--active={tab === "quick"}
+            onclick={() => (tab = "quick")}
+        >
+            {labels.tabQuick}
+        </button>
     </div>
 
     <div class="migration__body">
         {#if tab === "export"}
             <NotebookDialog {labels} {load} {exportNotebooks} {save} {onClose} />
-        {:else}
+        {:else if tab === "import"}
             <ImportPanel {labels} {load} {importZip} {onClose} />
+        {:else}
+            <QuickConfig
+                {labels}
+                settings={quickSettings}
+                loadNotebooks={load}
+                onSave={onQuickSave}
+                onCancel={() => (tab = "export")}
+            />
         {/if}
     </div>
 </div>

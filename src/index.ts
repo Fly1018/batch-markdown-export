@@ -8,6 +8,7 @@ const NOTEBOOK_API = "/api/notebook/lsNotebooks";
 const SQL_API = "/api/query/sql";
 const EXPORT_API = "/api/export/exportNotebooksMd";
 const IMPORT_API = "/api/import/importZipMd";
+const IMPORT_STD_MD_API = "/api/import/importStdMd";
 const RELOAD_FILETREE_API = "/api/ui/reloadFiletree";
 
 interface NotebookRow {
@@ -17,6 +18,24 @@ interface NotebookRow {
     encrypted: boolean;
     count: number | null;
 }
+
+interface QuickSettings {
+    exportNotebook: string;
+    exportSaveMode: "dialog" | "download";
+    importFolder: string;
+    importNotebook: string;
+    importPath: string;
+    importSkipRoot: boolean;
+}
+
+const DEFAULT_QUICK: QuickSettings = {
+    exportNotebook: "",
+    exportSaveMode: "dialog",
+    importFolder: "",
+    importNotebook: "",
+    importPath: "/",
+    importSkipRoot: false,
+};
 
 const OPTIONS = [
     { key: "includeSubDocs", label: "optionIncludeSubDocs", desc: "optionIncludeSubDocsDesc" },
@@ -31,6 +50,7 @@ export default class BatchMarkdownExport extends Plugin {
     private exporting = false;
     private saving = false;
     private importing = false;
+    private quick: QuickSettings = { ...DEFAULT_QUICK };
     private dialog: ReturnType<typeof svelteDialog> | undefined;
 
     async onload() {
@@ -57,6 +77,18 @@ export default class BatchMarkdownExport extends Plugin {
         } catch (error) {
             console.warn("[batch-markdown-export] load settings failed", error);
         }
+
+        await this.loadQuick();
+        this.addCommand({
+            langKey: "quickExport",
+            hotkey: "⇧⌘E",
+            callback: () => void this.quickExport(),
+        });
+        this.addCommand({
+            langKey: "quickImport",
+            hotkey: "⇧⌘I",
+            callback: () => void this.quickImport(),
+        });
     }
 
     onLayoutReady() {
@@ -77,6 +109,23 @@ export default class BatchMarkdownExport extends Plugin {
                     label: this.t("importMenu"),
                     click: () => this.openMigrationDialog("import"),
                 });
+                menu.addSeparator();
+                menu.addItem({
+                    icon: "iconSparkles",
+                    label: this.t("quickExport"),
+                    click: () => void this.quickExport(),
+                });
+                menu.addItem({
+                    icon: "iconDownload",
+                    label: this.t("quickImport"),
+                    click: () => void this.quickImport(),
+                });
+                menu.addItem({
+                    icon: "iconSettings",
+                    label: this.t("quickConfigMenu"),
+                    click: () => this.openMigrationDialog("quick"),
+                });
+                menu.addSeparator();
                 menu.addItem({
                     icon: "iconSettings",
                     label: this.t("settingsMenu"),
@@ -235,7 +284,113 @@ export default class BatchMarkdownExport extends Plugin {
         }
     }
 
-    private openMigrationDialog(tab: "export" | "import" = "export") {
+    private normalizeQuick(raw: any): QuickSettings {
+        const result: QuickSettings = { ...DEFAULT_QUICK };
+        if (!raw || typeof raw !== "object") return result;
+        for (const key of ["exportNotebook", "importFolder", "importNotebook", "importPath"] as const) {
+            if (typeof raw[key] === "string") result[key] = raw[key];
+        }
+        if (raw.exportSaveMode === "download") result.exportSaveMode = "download";
+        if (typeof raw.importSkipRoot === "boolean") result.importSkipRoot = raw.importSkipRoot;
+        if (!result.importPath) result.importPath = "/";
+        return result;
+    }
+
+    private async loadQuick() {
+        try {
+            const stored = await this.loadData("quick");
+            this.quick = this.normalizeQuick(stored);
+        } catch (error) {
+            console.warn("[batch-markdown-export] load quick settings failed", error);
+        }
+    }
+
+    private saveQuick() {
+        try {
+            const request = this.saveData("quick", { ...this.quick });
+            if (request && typeof request.catch === "function") request.catch(() => undefined);
+        } catch (error) {
+            console.warn("[batch-markdown-export] save quick settings failed", error);
+        }
+    }
+
+    private async quickExport() {
+        if (this.disposed) return;
+        if (this.exporting || this.saving || this.importing) {
+            showMessage(this.t("exporting"), 3000);
+            return;
+        }
+        const notebook = this.quick.exportNotebook;
+        if (!notebook) {
+            showMessage(this.t("quickNotConfiguredExport"), 5000);
+            this.openMigrationDialog("quick");
+            return;
+        }
+        this.exporting = true;
+        try {
+            const result = await this.exportNotebooks([notebook]);
+            if (this.quick.exportSaveMode === "download") {
+                this.downloadViaAnchor(result.zip, result.name);
+                showMessage(this.t("quickExportDownloaded"), 4000);
+            } else {
+                this.saving = true;
+                try {
+                    const status = await this.saveZip(result.zip, result.name);
+                    if (status === "saved") showMessage(this.t("exportSaved"), 4000);
+                    else if (status === "canceled") showMessage(this.t("exportCanceled"), 4000);
+                    else showMessage(this.t("downloadFailed"), 7000, "error");
+                } finally {
+                    this.saving = false;
+                }
+            }
+        } catch (error: any) {
+            showMessage(`${this.t("exportFailed")}: ${error?.message || this.t("requestFailed")}`, 6000, "error");
+        } finally {
+            this.exporting = false;
+        }
+    }
+
+    private async quickImport() {
+        if (this.disposed) return;
+        if (this.importing) {
+            showMessage(this.t("importing"), 3000);
+            return;
+        }
+        const folder = String(this.quick.importFolder || "").trim();
+        const notebook = String(this.quick.importNotebook || "").trim();
+        if (!folder || !notebook) {
+            showMessage(this.t("quickNotConfiguredImport"), 5000);
+            this.openMigrationDialog("quick");
+            return;
+        }
+        this.importing = true;
+        try {
+            const response = await fetchSyncPost(IMPORT_STD_MD_API, {
+                notebook,
+                localPath: folder,
+                toPath: String(this.quick.importPath || "/").trim() || "/",
+                skipRoot: Boolean(this.quick.importSkipRoot),
+            });
+            if (!response || typeof response.code !== "number") {
+                throw new Error(this.t("importFailed"));
+            }
+            if (response.code !== 0) {
+                throw new Error(response.msg || this.t("importFailed"));
+            }
+            try {
+                await fetchSyncPost(RELOAD_FILETREE_API, {});
+            } catch (error) {
+                console.warn("[batch-markdown-export] reload file tree failed", error);
+            }
+            showMessage(this.t("importDone"), 4000);
+        } catch (error: any) {
+            showMessage(`${this.t("importFailed")}: ${error?.message || this.t("requestFailed")}`, 7000, "error");
+        } finally {
+            this.importing = false;
+        }
+    }
+
+    private openMigrationDialog(tab: "export" | "import" | "quick" = "export") {
         if (this.disposed) return;
         if (this.exporting || this.saving || this.importing) {
             showMessage(this.t(tab === "import" ? "importing" : "exporting"), 3000);
@@ -293,6 +448,27 @@ export default class BatchMarkdownExport extends Plugin {
                     importFailed: this.t("importFailed"),
                     importNeedNotebook: this.t("importNeedNotebook"),
                     importNoNotebooks: this.t("importNoNotebooks"),
+                    tabQuick: this.t("tabQuick"),
+                    quickIntro: this.t("quickIntro"),
+                    quickExportSection: this.t("quickExportSection"),
+                    quickExportNotebook: this.t("quickExportNotebook"),
+                    quickSaveMode: this.t("quickSaveMode"),
+                    quickSaveDialog: this.t("quickSaveDialog"),
+                    quickSaveDownload: this.t("quickSaveDownload"),
+                    quickExportHint: this.t("quickExportHint"),
+                    quickSaveModeHint: this.t("quickSaveModeHint"),
+                    quickImportSection: this.t("quickImportSection"),
+                    quickImportFolder: this.t("quickImportFolder"),
+                    quickImportFolderPlaceholder: this.t("quickImportFolderPlaceholder"),
+                    quickImportFolderHint: this.t("quickImportFolderHint"),
+                    quickImportNotebook: this.t("quickImportNotebook"),
+                    quickImportPath: this.t("quickImportPath"),
+                    quickImportPathHint: this.t("quickImportPathHint"),
+                    quickImportSkipRoot: this.t("quickImportSkipRoot"),
+                    quickImportSkipRootDesc: this.t("quickImportSkipRootDesc"),
+                    quickHotkeyHint: this.t("quickHotkeyHint"),
+                    quickSaved: this.t("quickSaved"),
+                    save: this.t("save"),
                 },
                 load: () => this.loadNotebooks(),
                 exportNotebooks: async (ids: string[]) => {
@@ -322,6 +498,12 @@ export default class BatchMarkdownExport extends Plugin {
                     } finally {
                         this.importing = false;
                     }
+                },
+                quickSettings: { ...this.quick },
+                onQuickSave: (next: QuickSettings) => {
+                    this.quick = this.normalizeQuick(next);
+                    this.saveQuick();
+                    showMessage(this.t("quickSaved"), 3000);
                 },
                 onClose: () => handle.close(),
             },
