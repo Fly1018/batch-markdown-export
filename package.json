@@ -10,6 +10,11 @@
   "engines": {
     "node": ">=20.19.0"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher"
+    ]
+  },
   "scripts": {
     "dev": "vite build --watch",
     "build": "node ./scripts/clean.js && vite build",
