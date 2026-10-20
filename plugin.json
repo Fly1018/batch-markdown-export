@@ -31,7 +31,9 @@
   "readme": {
     "default": "README.md",
     "zh_CN": "README.zh-CN.md",
-    "en_US": "README.md"
+    "zh-CN": "README.zh-CN.md",
+    "en_US": "README.md",
+    "en": "README.md"
   },
   "keywords": [
     "markdown",
@@ -41,5 +43,7 @@
     "导出",
     "导入",
     "备份"
-  ]
+  ],
+  "icon": "icon.png",
+  "preview": "preview.png"
 }

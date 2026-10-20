@@ -3,7 +3,7 @@
   "version": "0.3.1",
   "private": true,
   "type": "module",
-  "description": "SiYuan plugin: Batch Markdown Export",
+  "description": "SiYuan plugin: Batch Markdown Export & Import",
   "author": "Fly1018",
   "license": "MIT",
   "packageManager": "pnpm@11.4.0",
