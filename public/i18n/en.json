@@ -83,5 +83,8 @@
   "quickSaved": "Saved",
   "quickExportDownloaded": "Export complete. Download started",
   "quickNoNotebooks": "No notebooks available",
-  "save": "Save"
+  "save": "Save",
+  "importStripYaml": "Remove YAML front matter",
+  "importStripTitle": "Remove the first heading",
+  "importStripHint": "Applies only to documents created by this import: removes the leading YAML block and the first heading."
 }

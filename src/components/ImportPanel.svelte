@@ -12,7 +12,7 @@
     interface Props {
         labels: Record<string, string>;
         load: () => Promise<{ notebooks: Notebook[]; counts: Record<string, number> }>;
-        importZip: (file: File, notebook: string, toPath: string, skipRoot: boolean) => Promise<void>;
+        importZip: (file: File, notebook: string, toPath: string, skipRoot: boolean, stripYaml: boolean, stripTitle: boolean) => Promise<void>;
         onClose: () => void;
     }
 
@@ -27,6 +27,8 @@
     let file = $state<File | null>(null);
     let toPath = $state("/");
     let skipRoot = $state(false);
+    let stripYaml = $state(true);
+    let stripTitle = $state(true);
     let fileInput: HTMLInputElement | undefined = $state();
 
     const available = $derived(notebooks.filter((notebook) => !notebook.encrypted));
@@ -94,7 +96,7 @@
         statusKind = "muted";
         status = labels.importing;
         try {
-            await importZip(file, selectedNotebook, toPath.trim() || "/", skipRoot);
+            await importZip(file, selectedNotebook, toPath.trim() || "/", skipRoot, stripYaml, stripTitle);
             statusKind = "success";
             status = labels.importDone;
             file = null;
@@ -156,6 +158,16 @@
                 {/if}
             </div>
         </div>
+
+        <label class="imp__check">
+            <input type="checkbox" class="b3-switch" bind:checked={stripYaml} disabled={busy} />
+            <span>{labels.importStripYaml}</span>
+        </label>
+        <label class="imp__check">
+            <input type="checkbox" class="b3-switch" bind:checked={stripTitle} disabled={busy} />
+            <span>{labels.importStripTitle}</span>
+        </label>
+        <div class="imp__hint imp__hint--small">{labels.importStripHint}</div>
 
         <label class="imp__check">
             <input type="checkbox" class="b3-switch" bind:checked={skipRoot} disabled={busy} />

@@ -16,6 +16,7 @@ Export notebooks as a Markdown ZIP, import a Markdown ZIP, or run a preconfigure
 - Select a target notebook and an optional target path.
 - Choose a Markdown ZIP (for example, one exported by this plugin).
 - Optionally skip the ZIP root folder.
+- Remove YAML front matter and the first heading from newly imported documents (useful when re-importing exported Markdown).
 - Uploads through `/api/import/importZipMd` and refreshes the file tree afterwards.
 
 ### One-click export / import
@@ -25,7 +26,7 @@ Open the **Quick** tab once to configure:
 - Default export notebook.
 - Save mode: **Ask where to save** or **Download directly**.
 - Default import folder (a local Markdown folder outside the workspace).
-- Target notebook, target path, and whether to skip the folder root.
+- Target notebook, target path, whether to skip the folder root, and whether to remove YAML/title.
 
 After that:
 
@@ -50,6 +51,7 @@ Right-click the top-bar icon to open the export/import tabs or run the one-click
 - The import folder must be a local folder outside the SiYuan workspace.
 - **Download directly** saves to the browser's default download folder without a save dialog.
 - The import ZIP can contain `.md` files and folders; folders are imported as documents.
+- “Remove YAML front matter” and “Remove the first heading” only affect documents created by the current import. Uncheck “Remove the first heading” if the document legitimately starts with a heading.
 
 ## Development
 

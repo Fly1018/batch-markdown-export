@@ -16,6 +16,8 @@
         importNotebook: string;
         importPath: string;
         importSkipRoot: boolean;
+        stripYaml: boolean;
+        stripTitle: boolean;
     }
 
     interface Props {
@@ -39,6 +41,8 @@
     let importNotebook = $state(initial.importNotebook);
     let importPath = $state(initial.importPath || "/");
     let importSkipRoot = $state(initial.importSkipRoot);
+    let stripYaml = $state(initial.stripYaml);
+    let stripTitle = $state(initial.stripTitle);
 
     const exportOptions = $derived(notebooks.filter((notebook) => !notebook.encrypted));
     const importOptions = $derived(notebooks.filter((notebook) => !notebook.encrypted && !notebook.closed));
@@ -68,6 +72,8 @@
             importNotebook,
             importPath: importPath.trim() || "/",
             importSkipRoot,
+            stripYaml,
+            stripTitle,
         });
         saved = true;
         error = "";
@@ -128,6 +134,16 @@
                 <input class="b3-text-field" bind:value={importPath} placeholder="/" />
             </label>
             <div class="quick__hint quick__hint--small">{labels.quickImportPathHint}</div>
+
+            <label class="quick__check">
+                <input type="checkbox" class="b3-switch" bind:checked={stripYaml} />
+                <span>{labels.importStripYaml}</span>
+            </label>
+            <label class="quick__check">
+                <input type="checkbox" class="b3-switch" bind:checked={stripTitle} />
+                <span>{labels.importStripTitle}</span>
+            </label>
+            <div class="quick__hint quick__hint--small">{labels.importStripHint}</div>
 
             <label class="quick__check">
                 <input type="checkbox" class="b3-switch" bind:checked={importSkipRoot} />

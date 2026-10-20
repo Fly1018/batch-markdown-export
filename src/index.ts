@@ -26,6 +26,8 @@ interface QuickSettings {
     importNotebook: string;
     importPath: string;
     importSkipRoot: boolean;
+    stripYaml: boolean;
+    stripTitle: boolean;
 }
 
 const DEFAULT_QUICK: QuickSettings = {
@@ -35,6 +37,8 @@ const DEFAULT_QUICK: QuickSettings = {
     importNotebook: "",
     importPath: "/",
     importSkipRoot: false,
+    stripYaml: true,
+    stripTitle: true,
 };
 
 const OPTIONS = [
@@ -253,7 +257,15 @@ export default class BatchMarkdownExport extends Plugin {
         }
     }
 
-    private async importZip(file: File, notebook: string, toPath: string, skipRoot: boolean) {
+    private async importZip(
+        file: File,
+        notebook: string,
+        toPath: string,
+        skipRoot: boolean,
+        stripYaml: boolean,
+        stripTitle: boolean,
+    ) {
+        const before = stripYaml || stripTitle ? await this.docIDs(notebook) : null;
         const form = new FormData();
         form.append("file", file, file.name);
         form.append("notebook", notebook);
@@ -277,10 +289,77 @@ export default class BatchMarkdownExport extends Plugin {
             throw new Error((data && data.msg) || this.t("importFailed"));
         }
 
+        if (before) {
+            await this.stripNewDocs(notebook, before, stripYaml, stripTitle);
+        }
         try {
             await fetchSyncPost(RELOAD_FILETREE_API, {});
         } catch (error) {
             console.warn("[batch-markdown-export] reload file tree failed", error);
+        }
+    }
+
+    private async docIDs(notebook: string): Promise<string[] | null> {
+        if (!/^[0-9a-z-]{1,64}$/i.test(notebook)) return null;
+        try {
+            const response = await this.post(SQL_API, {
+                stmt: `SELECT id FROM blocks WHERE type = 'd' AND box = '${notebook}'`,
+            });
+            const rows = response.data;
+            return Array.isArray(rows)
+                ? rows.map((row: any) => String(row?.id || "")).filter(Boolean)
+                : null;
+        } catch (error) {
+            console.warn("[batch-markdown-export] snapshot documents failed", error);
+            return null;
+        }
+    }
+
+    private async stripNewDocs(
+        notebook: string,
+        before: string[],
+        stripYaml: boolean,
+        stripTitle: boolean,
+    ) {
+        if (!stripYaml && !stripTitle) return;
+        const after = await this.docIDs(notebook);
+        if (!after) return;
+        const known = new Set(before);
+        for (const id of after) {
+            if (known.has(id)) continue;
+            try {
+                await this.stripDoc(id, stripYaml, stripTitle);
+            } catch (error) {
+                console.warn("[batch-markdown-export] strip imported document failed", id, error);
+            }
+        }
+    }
+
+    private async stripDoc(docID: string, stripYaml: boolean, stripTitle: boolean) {
+        const response = await this.post("/api/block/getChildBlocks", { id: docID });
+        const children = Array.isArray(response.data) ? response.data : [];
+        let first = true;
+        for (const child of children.slice(0, 4)) {
+            if (!child?.id) continue;
+            const type = String(child.type || "");
+            const subType = String(child.subType || "").toLowerCase();
+            const content = String(child.content || "").trim();
+
+            if (first && type === "p" && !content) {
+                continue;
+            }
+            const yamlBlock = type === "c" && (subType === "yaml" || content.includes("title:"));
+            const yamlParagraph = type === "p" && content.startsWith("---") && content.includes("title:");
+            if (first && stripYaml && (yamlBlock || yamlParagraph)) {
+                await this.post("/api/block/deleteBlock", { id: child.id });
+                continue;
+            }
+            if (first && stripTitle && type === "h") {
+                await this.post("/api/block/deleteBlock", { id: child.id });
+                continue;
+            }
+            first = false;
+            break;
         }
     }
 
@@ -292,6 +371,8 @@ export default class BatchMarkdownExport extends Plugin {
         }
         if (raw.exportSaveMode === "download") result.exportSaveMode = "download";
         if (typeof raw.importSkipRoot === "boolean") result.importSkipRoot = raw.importSkipRoot;
+        if (typeof raw.stripYaml === "boolean") result.stripYaml = raw.stripYaml;
+        if (typeof raw.stripTitle === "boolean") result.stripTitle = raw.stripTitle;
         if (!result.importPath) result.importPath = "/";
         return result;
     }
@@ -365,6 +446,9 @@ export default class BatchMarkdownExport extends Plugin {
         }
         this.importing = true;
         try {
+            const stripYaml = Boolean(this.quick.stripYaml);
+            const stripTitle = Boolean(this.quick.stripTitle);
+            const before = stripYaml || stripTitle ? await this.docIDs(notebook) : null;
             const response = await fetchSyncPost(IMPORT_STD_MD_API, {
                 notebook,
                 localPath: folder,
@@ -376,6 +460,9 @@ export default class BatchMarkdownExport extends Plugin {
             }
             if (response.code !== 0) {
                 throw new Error(response.msg || this.t("importFailed"));
+            }
+            if (before) {
+                await this.stripNewDocs(notebook, before, stripYaml, stripTitle);
             }
             try {
                 await fetchSyncPost(RELOAD_FILETREE_API, {});
@@ -442,6 +529,9 @@ export default class BatchMarkdownExport extends Plugin {
                     importOnlyZip: this.t("importOnlyZip"),
                     importSkipRoot: this.t("importSkipRoot"),
                     importSkipRootDesc: this.t("importSkipRootDesc"),
+                    importStripYaml: this.t("importStripYaml"),
+                    importStripTitle: this.t("importStripTitle"),
+                    importStripHint: this.t("importStripHint"),
                     importStart: this.t("importStart"),
                     importing: this.t("importing"),
                     importDone: this.t("importDone"),
@@ -491,10 +581,17 @@ export default class BatchMarkdownExport extends Plugin {
                         this.saving = false;
                     }
                 },
-                importZip: async (file: File, notebook: string, toPath: string, skipRoot: boolean) => {
+                importZip: async (
+                    file: File,
+                    notebook: string,
+                    toPath: string,
+                    skipRoot: boolean,
+                    stripYaml: boolean,
+                    stripTitle: boolean,
+                ) => {
                     this.importing = true;
                     try {
-                        await this.importZip(file, notebook, toPath, skipRoot);
+                        await this.importZip(file, notebook, toPath, skipRoot, stripYaml, stripTitle);
                     } finally {
                         this.importing = false;
                     }

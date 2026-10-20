@@ -83,5 +83,8 @@
   "quickSaved": "已保存",
   "quickExportDownloaded": "导出完成，已开始下载",
   "quickNoNotebooks": "没有可用的笔记本",
-  "save": "保存"
+  "save": "保存",
+  "importStripYaml": "去掉 YAML Front Matter",
+  "importStripTitle": "去掉首个标题",
+  "importStripHint": "只处理本次导入新创建的文档；会删除开头的 YAML 代码块和第一个标题。"
 }
